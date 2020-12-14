@@ -11,6 +11,7 @@ import           Data.Vector                    ( (!?)
                                                 , (//)
                                                 )
 import qualified Data.Vector                   as Vector
+import           System.Directory               ( doesFileExist )
 import           System.Environment             ( getArgs )
 
 data EditorAction
@@ -25,9 +26,10 @@ data EditorAction
   | Quit
 
 data Buffer = Buffer
-  { cursorPosition :: Int,
-    currentLine :: String,
-    bufferContent :: Vector.Vector String
+  { bufferFileName :: String
+  , cursorPosition :: Int
+  , currentLine    :: String
+  , bufferContent  :: Vector.Vector String
   }
   deriving (Eq, Show)
 
@@ -35,8 +37,12 @@ someFunc :: IO ()
 someFunc =
   getArgs
     >>= (\case
-          []     -> return emptyBuffer
-          [name] -> readFile name <&> initialBuffer
+          [] -> return emptyBuffer
+          [name] ->
+            doesFileExist name
+              >>= \exist -> if exist
+                    then readFile name <&> initialBuffer name
+                    else return $ initialBuffer name ""
         )
     >>= run
     >>  return ()
@@ -57,7 +63,7 @@ run buf = getLine >>= \input -> case toAction input of
       )
       >> run buf
   SaveFile ->
-    writeFile "test.txt" (unlines . Vector.toList $ bufferContent buf)
+    writeFile (bufferFileName buf) (unlines . Vector.toList $ bufferContent buf)
       >> run buf
   Error -> putStrLn "?" >> run buf
   Quit  -> return ()
@@ -98,10 +104,10 @@ deleteFromBuffer buf = buf
   }
 
 emptyBuffer :: Buffer
-emptyBuffer = Buffer 0 "" Vector.empty
+emptyBuffer = Buffer "" 0 "" Vector.empty
 
-initialBuffer :: String -> Buffer
-initialBuffer body = Buffer 0 "" $ Vector.fromList (lines body)
+initialBuffer :: String -> String -> Buffer
+initialBuffer name body = Buffer name 0 "" $ Vector.fromList (lines body)
 
 toAction :: String -> EditorAction
 toAction = \case
