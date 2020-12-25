@@ -4,6 +4,7 @@
 module Buffer
   ( Buffer(..)
   , emptyBuffer
+  , extendBuffer
   , initialBuffer
   , insertBuffer
   , getBufferLine
@@ -53,14 +54,39 @@ insertBuffer newContent buf = buf { bufferContent  = newBufferContent
   prevContentLength = Vector.length prevContent
   prevContent       = bufferContent buf
 
+extendBuffer :: [T.Text] -> Int -> Buffer -> Maybe Buffer
+extendBuffer newContent position buf =
+  case newBufferContent newContent position (bufferContent buf) of
+    Just content -> Just buf
+      { bufferContent  = content
+      , cursorPosition = position + length newContent - 1
+      }
+    Nothing -> Nothing
+
+newBufferContent
+  :: [T.Text] -> Int -> Vector.Vector T.Text -> Maybe (Vector.Vector T.Text)
+newBufferContent newContent position prevContent
+  | position < prevContentLength
+  = let (before, after) = Vector.splitAt position prevContent
+    in  Just $ Vector.concat [before, newContentVector, Vector.tail after]
+  | position == prevContentLength
+  = Just $ Vector.concat [prevContent, newContentVector]
+  | otherwise
+  = Nothing
+ where
+  newContentVector  = Vector.fromList newContent
+  prevContentLength = Vector.length prevContent
+
+
 getBufferLine :: Buffer -> Int -> Maybe T.Text
 getBufferLine = fmap (!?) bufferContent
 
 -- TODO: Should return Either T.Text (Vector.Vector T.Text)
 getBufferLines :: Buffer -> Int -> Int -> Maybe (Vector.Vector T.Text)
 getBufferLines buf from to
-  | Vector.length bc > to = Just $ Vector.slice (from - 1) to bc
-  | otherwise             = Nothing
+  | Vector.length bc > to && from > 0 && to > 0 = Just
+  $ Vector.slice (from - 1) to bc
+  | otherwise = Nothing
   where bc = bufferContent buf
 
 incCurrentLine :: Buffer -> Buffer
@@ -69,9 +95,6 @@ incCurrentLine buf = buf { cursorPosition = cursorPosition buf + 1 }
 decCurrentLine :: Buffer -> Buffer
 decCurrentLine buf = buf { cursorPosition = cursorPosition buf - 1 }
 
--- TODO: Probably it would be better (in terms of delete operation performance)
---       to store lines as Vector Maybe String and removing them by inserting
---       Nothing.
 deleteFromBuffer :: Buffer -> Buffer
 deleteFromBuffer buf = buf
   { bufferContent = uncurry
