@@ -52,7 +52,7 @@ run :: Buffer -> EditorAction -> IO (Maybe Buffer)
 run buf event = case event of
   Append                 -> runInsert buf CurrentLine
   Insert address         -> runInsert buf address
-  Delete _address        -> return $ Just $ deleteFromBuffer buf
+  Delete address         -> runDelete buf address
   Debug                  -> print buf >> return Nothing
   Search direction match -> runSearch buf direction match
   NLine                  -> return $ Just $ incCurrentLine buf
@@ -165,3 +165,14 @@ runPrint buf address = case address of
   MarkedLine n -> case getBufferLine buf n of
     Just x  -> printf "%s\n" x
     Nothing -> putStrLn "?"
+
+runDelete :: Buffer -> Address -> IO (Maybe Buffer)
+runDelete buf address = return $ Just $ case address of
+  Lines from to -> deleteLinesFromBuffer buf (from - 1) to
+  AllLines -> deleteLinesFromBuffer buf 0 (Vector.length (bufferContent buf))
+  Line n        -> deleteLineFromBuffer buf $ n - 1
+  CurrentLine   -> deleteLineFromBuffer buf (cursorPosition buf)
+  LastLine -> deleteLineFromBuffer buf (Vector.length (bufferContent buf) - 1)
+  PreviousLine  -> deleteLineFromBuffer buf $ cursorPosition buf - 1
+  NextLine      -> deleteLineFromBuffer buf $ cursorPosition buf + 1
+  MarkedLine n  -> deleteLineFromBuffer buf $ n - 1

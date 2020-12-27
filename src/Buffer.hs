@@ -12,7 +12,8 @@ module Buffer
   , getBufferLines
   , incCurrentLine
   , decCurrentLine
-  , deleteFromBuffer
+  , deleteLineFromBuffer
+  , deleteLinesFromBuffer
   , updateNextMatch
   , updateBufferNextMatch
   , getBufferLastMatch
@@ -110,12 +111,19 @@ incCurrentLine buf = buf { cursorPosition = cursorPosition buf + 1 }
 decCurrentLine :: Buffer -> Buffer
 decCurrentLine buf = buf { cursorPosition = cursorPosition buf - 1 }
 
-deleteFromBuffer :: Buffer -> Buffer
-deleteFromBuffer buf = buf
-  { bufferContent = uncurry
-                      (<>)
-                      (Vector.splitAt (cursorPosition buf) (bufferContent buf))
+deleteLineFromBuffer :: Buffer -> Int -> Buffer
+deleteLineFromBuffer buf idx = buf
+  { bufferContent = Vector.concat [prev, Vector.tail next]
   }
+  where (prev, next) = Vector.splitAt idx (bufferContent buf)
+
+deleteLinesFromBuffer :: Buffer -> Int -> Int -> Buffer
+deleteLinesFromBuffer buf from to = buf
+  { bufferContent = Vector.concat [prev, next]
+  }
+ where
+  (prev, xs) = Vector.splitAt from (bufferContent buf)
+  next       = Vector.drop (to - from) xs
 
 emptySearchPhrase :: SearchPhrase
 emptySearchPhrase = SearchPhrase "" 0 Vector.empty
