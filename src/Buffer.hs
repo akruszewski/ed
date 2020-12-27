@@ -3,6 +3,7 @@
 
 module Buffer
   ( Buffer(..)
+  , SearchPhrase(..)
   , emptyBuffer
   , extendBuffer
   , initialBuffer
@@ -12,6 +13,10 @@ module Buffer
   , incCurrentLine
   , decCurrentLine
   , deleteFromBuffer
+  , updateNextMatch
+  , updateBufferNextMatch
+  , getBufferLastMatch
+  , emptySearchPhrase
   )
 where
 
@@ -21,20 +26,30 @@ import           Data.Vector                    ( (!?)
 import qualified Data.Text                     as T
 import qualified Data.Vector                   as Vector
 
+import           Direction
+
 
 data Buffer = Buffer
-  { bufferFileName :: String
-  , cursorPosition :: Int
-  , markedPosition :: Int
-  , bufferContent  :: Vector.Vector T.Text
+  { bufferFileName   :: String
+  , cursorPosition   :: Int
+  , markedPosition   :: Int
+  , lastSearchPhrase :: SearchPhrase
+  , bufferContent    :: Vector.Vector T.Text
+  }
+  deriving (Eq, Show)
+
+data SearchPhrase = SearchPhrase
+  { phrase        :: T.Text
+  , nextMatch     :: Int
+  , cachedMatches :: Vector.Vector (Int, T.Text, [T.Text])
   }
   deriving (Eq, Show)
 
 emptyBuffer :: Buffer
-emptyBuffer = Buffer "" 0 0 Vector.empty
+emptyBuffer = Buffer "" 0 0 emptySearchPhrase Vector.empty
 
 initialBuffer :: String -> T.Text -> Buffer
-initialBuffer name body = Buffer name cp 0 content
+initialBuffer name body = Buffer name cp 0 emptySearchPhrase content
  where
   content = Vector.fromList (T.lines body)
   cp      = Vector.length content - 1
@@ -73,10 +88,10 @@ newBufferContent newContent position prevContent
   = Just $ Vector.concat [prevContent, newContentVector]
   | otherwise
   = Nothing
+
  where
   newContentVector  = Vector.fromList newContent
   prevContentLength = Vector.length prevContent
-
 
 getBufferLine :: Buffer -> Int -> Maybe T.Text
 getBufferLine = fmap (!?) bufferContent
@@ -101,3 +116,28 @@ deleteFromBuffer buf = buf
                       (<>)
                       (Vector.splitAt (cursorPosition buf) (bufferContent buf))
   }
+
+emptySearchPhrase :: SearchPhrase
+emptySearchPhrase = SearchPhrase "" 0 Vector.empty
+
+updateNextMatch :: Direction -> SearchPhrase -> SearchPhrase
+updateNextMatch dir sp
+  | dir == Forward = sp { nextMatch = if nx >= matchesLen then 0 else nx + 1 }
+  | dir == Backward = sp
+    { nextMatch = if nx == 0 then matchesLen - 1 else nx - 1
+    }
+ where
+  nx         = nextMatch sp
+  matches    = cachedMatches sp
+  matchesLen = Vector.length matches
+
+updateBufferNextMatch :: Direction -> Buffer -> Buffer
+updateBufferNextMatch dir buf = buf
+  { lastSearchPhrase = updateNextMatch dir lsp
+  , cursorPosition   = nextMatch lsp
+  }
+  where lsp = lastSearchPhrase buf
+
+getBufferLastMatch :: Buffer -> Maybe (Int, T.Text, [T.Text])
+getBufferLastMatch buf =
+  (cachedMatches . lastSearchPhrase) buf !? (nextMatch . lastSearchPhrase) buf

@@ -15,17 +15,11 @@ import qualified Data.Text                     as T
 import           Text.ParserCombinators.ReadP   ( ReadP(..)
                                                 , many1
                                                 , munch1
+                                                , look
                                                 , readP_to_S
                                                 , satisfy
                                                 )
 import           Event
-
-
--------------------------------------------------------------------------------
--- PARSER
--------------------------------------------------------------------------------
--- TODO:
---  - implement all comands from https://man.openbsd.org/ed.1
 
 toAction :: String -> Maybe EditorAction
 toAction input = case readP_to_S parseAction input of
@@ -35,7 +29,10 @@ toAction input = case readP_to_S parseAction input of
 
 parseAction :: ReadP EditorAction
 parseAction =
-  parseSimpleAction <|> parseActionWithArgument <|> parseAddressAction
+  parseRegexAction
+    <|> parseSimpleAction
+    <|> parseActionWithArgument
+    <|> parseAddressAction
 
 parseAddressAction :: ReadP EditorAction
 parseAddressAction = do
@@ -62,6 +59,14 @@ parseActionWithArgument = do
   return $ case action of
     'w' -> SaveFile (Just xs)
 
+parseRegexAction :: ReadP EditorAction
+parseRegexAction = do
+  action <- satisfy isLineAddressWithArgs
+  xs     <- look -- TODO: characters here should be consumed.
+  return $ case action of
+    '/' -> Search Forward $ T.pack xs
+    '?' -> Search Backward $ T.pack xs
+
 parseLines :: ReadP Address
 parseLines =
   parseRangeLines <|> parseLineAddress <|> parseLine <|> return CurrentLine
@@ -74,10 +79,7 @@ parseRangeLines = do
   return $ Lines (read from) (read to)
 
 parseLine :: ReadP Address
-parseLine = parseLineWithArguments <|> parseLineWithoudArguments
-
-parseLineWithoudArguments :: ReadP Address
-parseLineWithoudArguments = satisfy isLineAddress >>= \case
+parseLine = satisfy isLineAddress >>= \case
   ',' -> return AllLines
   '%' -> return AllLines
   ';' -> return LinesFromCurrentToLast
@@ -86,19 +88,6 @@ parseLineWithoudArguments = satisfy isLineAddress >>= \case
   '-' -> return PreviousLine
   '^' -> return PreviousLine
   '+' -> return NextLine
-
-parseLineWithArguments :: ReadP Address
-parseLineWithArguments = satisfy isLineAddressWithArgs >>= \case
-  '/' -> do
-    text <- munch1 isAlphaNum
-    return $ NextRegexLine $ T.pack text
-  '?' -> do
-    text <- munch1 (\x -> isAlpha x || isNumber x || isComa x)
-    return $ PrevRegexLine $ T.pack text
-  '\'' -> do
-    x <- munch1 isNumber
-    return $ MarkedLine $ read x
-
 
 parseLineAddress :: ReadP Address
 parseLineAddress = many1 number >>= \x -> return $ Line $ read x

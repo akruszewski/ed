@@ -26,7 +26,7 @@ runEditor buf = getLine >>= \input -> do
     Just action -> run buf action >>= \case
       Just nbuf -> void $ runEditor nbuf
       Nothing   -> void $ runEditor buf
-    Nothing -> void $ putStrLn "?"
+    Nothing -> void $ putStrLn "?" >> runEditor buf
 
 createBuffer :: [String] -> IO Buffer
 createBuffer = \case

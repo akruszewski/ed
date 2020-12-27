@@ -29,6 +29,7 @@ library
   exposed-modules:
       App
     , Buffer
+    , Direction
     , Parser
     , Event
   other-modules:
@@ -41,6 +42,8 @@ library
     , directory
     , text
     , vector >=0.12.1.2
+    , regex
+    , regex-tdfa
   default-language: Haskell2010
 
 executable ed-exe
