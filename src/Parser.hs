@@ -30,9 +30,9 @@ toAction input = case readP_to_S parseAction input of
 parseAction :: ReadP EditorAction
 parseAction =
   parseRegexAction
-    <|> parseSimpleAction
     <|> parseActionWithArgument
     <|> parseAddressAction
+    <|> parseSimpleAction
 
 parseAddressAction :: ReadP EditorAction
 parseAddressAction = do
@@ -40,7 +40,8 @@ parseAddressAction = do
   action  <- satisfy isActionWithAddress
   return $ case action of
     'p' -> Print address
-    'a' -> Insert address
+    'a' -> Append address
+    'i' -> Insert address
     'd' -> Delete address
 
 parseSimpleAction :: ReadP EditorAction
@@ -50,12 +51,13 @@ parseSimpleAction = do
     '-' -> return PLine
     '*' -> return Debug
     'q' -> return Quit
+    'w' -> return $ SaveFile Nothing
 
 parseActionWithArgument :: ReadP EditorAction
 parseActionWithArgument = do
   action <- satisfy isActionWithArgument
   satisfy (== ' ')
-  xs <- munch1 isAlphaNum
+  xs <- munch1 isPath
   return $ case action of
     'w' -> SaveFile (Just xs)
 
@@ -95,10 +97,12 @@ parseLineAddress = many1 number >>= \x -> return $ Line $ read x
 number :: ReadP Char
 number = satisfy isNumber
 
--- coma :: ReadP Char
--- coma = satisfy isComa
 isAlphaNum :: Char -> Bool
 isAlphaNum x = isAlpha x || isNumber x || isComa x
+
+-- TODO: a lot of characters are missing here, refactor.
+isPath :: Char -> Bool
+isPath x = isAlpha x || isNumber x || isComa x || x == '/' || x == '.'
 
 isComa :: Char -> Bool
 isComa c = c == ','
@@ -113,7 +117,7 @@ isActionWithArgument :: Char -> Bool
 isActionWithArgument c = c `elem` ("w" :: String)
 
 isActionWithoutArgumentAndAddress :: Char -> Bool
-isActionWithoutArgumentAndAddress c = c `elem` ("+-*q" :: String)
+isActionWithoutArgumentAndAddress c = c `elem` ("+-*qw" :: String)
 
 isLineAddress :: Char -> Bool
 isLineAddress c = c `elem` (".$-^+,%;" :: String)
