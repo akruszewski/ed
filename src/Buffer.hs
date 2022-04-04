@@ -29,16 +29,16 @@ import qualified Data.Vector                   as Vector
 
 import           Direction
 
-
 data Buffer = Buffer
   { bufferFileName   :: String
   , cursorPosition   :: Int
   , markedPosition   :: Int
-  , lastSearchPhrase :: SearchPhrase
+  , lastSearchPhrase :: SearchPhrase -- TODO: rename to cached search phrase.
   , bufferContent    :: Vector.Vector T.Text
   }
   deriving (Eq, Show)
 
+-- TODO: move to separate module
 data SearchPhrase = SearchPhrase
   { phrase        :: T.Text
   , nextMatch     :: Int

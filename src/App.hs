@@ -20,8 +20,10 @@ runApp :: IO ()
 runApp = getArgs >>= createBuffer >>= runEditor >> return ()
 
 runEditor :: Buffer -> IO ()
-runEditor buf = getLine >>= \input -> do
-  case toAction input of
+runEditor buf = getLine >>= go
+ where
+  go :: String -> IO ()
+  go input = case toAction input of
     Just Quit   -> return ()
     Just action -> run buf action >>= \case
       Just nbuf -> void $ runEditor nbuf
